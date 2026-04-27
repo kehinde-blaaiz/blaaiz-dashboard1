@@ -31,15 +31,13 @@
   <script>
     const CLIENT_ID    = "1214314415420003";
     const REDIRECT_URI = "https://neon-smakager-9acd0a.netlify.app/auth/callback";
-    const SCOPES       = "default";
 
-    // Build Asana OAuth URL
+    // Build Asana OAuth URL — no scope needed with full permissions
     const state    = Math.random().toString(36).slice(2);
     const oauthUrl = "https://app.asana.com/-/oauth_authorize?" + new URLSearchParams({
       client_id:     CLIENT_ID,
       redirect_uri:  REDIRECT_URI,
       response_type: "code",
-      scope:         SCOPES,
       state,
     });
 
