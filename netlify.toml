@@ -1,12 +1,11 @@
 [build]
   publish = "public"
+  edge_functions = "netlify/edge-functions"
 
-# Proxy all Asana API calls — injects auth token from cookie
 [[edge_functions]]
   path = "/api/asana/*"
   function = "asana-proxy"
 
-# OAuth token exchange — runs serverless, keeps client_secret hidden
 [[edge_functions]]
   path = "/auth/callback"
   function = "asana-oauth"
