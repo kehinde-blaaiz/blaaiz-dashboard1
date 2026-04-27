@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blaaiz Dashboard — Login</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-gray-50 flex items-center justify-center">
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-10 w-full max-w-sm text-center">
+
+    <!-- Logo / Title -->
+    <div class="w-14 h-14 bg-gray-900 rounded-2xl flex items-center justify-center mx-auto mb-5">
+      <span class="text-white font-black text-xl">B</span>
+    </div>
+    <h1 class="text-xl font-bold text-gray-900 mb-1">Blaaiz Dashboard</h1>
+    <p class="text-sm text-gray-400 mb-8">Sign in with your Asana account to continue</p>
+
+    <!-- Error message -->
+    <div id="errorMsg" class="hidden mb-4 bg-red-50 border border-red-200 rounded-lg px-4 py-2 text-xs text-red-600"></div>
+
+    <!-- Login button -->
+    <a id="loginBtn" href="#"
+      class="block w-full py-3 px-4 bg-gray-900 text-white rounded-xl font-semibold text-sm hover:bg-gray-700 transition-colors">
+      Login with Asana
+    </a>
+
+    <p class="text-xs text-gray-300 mt-6">Your Asana credentials are never stored by this app</p>
+  </div>
+
+  <script>
+    const CLIENT_ID    = "1214314415420003";
+    const REDIRECT_URI = "https://neon-smakager-9acd0a.netlify.app/auth/callback";
+    const SCOPES       = "default";
+
+    // Build Asana OAuth URL
+    const state    = Math.random().toString(36).slice(2);
+    const oauthUrl = "https://app.asana.com/-/oauth_authorize?" + new URLSearchParams({
+      client_id:     CLIENT_ID,
+      redirect_uri:  REDIRECT_URI,
+      response_type: "code",
+      scope:         SCOPES,
+      state,
+    });
+
+    document.getElementById("loginBtn").href = oauthUrl;
+
+    // Show error if redirected back with error
+    const params = new URLSearchParams(window.location.search);
+    const err    = params.get("error");
+    if (err) {
+      const el = document.getElementById("errorMsg");
+      el.classList.remove("hidden");
+      el.textContent = err === "access_denied"
+        ? "Access was denied. Please try again and approve the Asana connection."
+        : "Something went wrong. Please try again.";
+    }
+  </script>
+</body>
+</html>
