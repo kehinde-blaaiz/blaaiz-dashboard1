@@ -1383,6 +1383,12 @@ function App() {
             className="text-xs px-3 py-1.5 rounded-full border border-gray-200 text-gray-500 hover:border-blue-400 hover:text-blue-600 transition-colors flex items-center gap-1.5">
             🔄 Sync Projects
           </button>
+          <button
+            onClick={() => { document.cookie = "asana_token=; Path=/; Max-Age=0"; window.location.href = "/login.html"; }}
+            title="Sign out"
+            className="text-xs px-3 py-1.5 rounded-full border border-gray-200 text-gray-500 hover:border-red-400 hover:text-red-600 transition-colors flex items-center gap-1.5">
+            Sign Out
+          </button>
         </div>
       </div>
 
