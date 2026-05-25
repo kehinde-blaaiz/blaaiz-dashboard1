@@ -18,7 +18,7 @@ function useClock() {
   return now;
 }
 
-const PLATFORM_STAGES = ["Kick Off", "Commercial", "Compliance", "Finance", "Sales", "Operations", "Tech"];
+const PLATFORM_STAGES = ["Kick Off", "Commercial", "Compliance", "Finance", "Sales", "Operations", "Product", "Tech"];
 const BUSINESS_STAGES = ["Kick Off", "Commercial", "Compliance", "Sales"];
 const PAY_STAGES      = ["Kick Off", "Commercial", "Compliance", "Finance", "Sales", "Operations", "Tech"];
 
@@ -238,8 +238,8 @@ function deriveStages(raw, stageOrder) {
 }
 
 // ─── Style maps ───────────────────────────────────────────────────────────────
-const PLATFORM_COLORS = ["bg-violet-100 text-violet-700","bg-blue-100 text-blue-700","bg-amber-100 text-amber-700","bg-orange-100 text-orange-700","bg-teal-100 text-teal-700","bg-green-100 text-green-700","bg-pink-100 text-pink-700"];
-const PLATFORM_BARS   = ["bg-violet-400","bg-blue-400","bg-amber-400","bg-orange-400","bg-teal-400","bg-green-400","bg-pink-400"];
+const PLATFORM_COLORS = ["bg-violet-100 text-violet-700","bg-blue-100 text-blue-700","bg-amber-100 text-amber-700","bg-orange-100 text-orange-700","bg-teal-100 text-teal-700","bg-green-100 text-green-700","bg-indigo-100 text-indigo-700","bg-pink-100 text-pink-700"];
+const PLATFORM_BARS   = ["bg-violet-400","bg-blue-400","bg-amber-400","bg-orange-400","bg-teal-400","bg-green-400","bg-indigo-400","bg-pink-400"];
 const BUSINESS_COLORS = ["bg-violet-100 text-violet-700","bg-blue-100 text-blue-700","bg-amber-100 text-amber-700","bg-teal-100 text-teal-700"];
 const BUSINESS_BARS   = ["bg-violet-400","bg-blue-400","bg-amber-400","bg-teal-400"];
 
@@ -1382,12 +1382,6 @@ function App() {
             title="Sync new projects from Asana"
             className="text-xs px-3 py-1.5 rounded-full border border-gray-200 text-gray-500 hover:border-blue-400 hover:text-blue-600 transition-colors flex items-center gap-1.5">
             🔄 Sync Projects
-          </button>
-          <button
-            onClick={() => { document.cookie = "asana_token=; Path=/; Max-Age=0"; window.location.href = "/login.html"; }}
-            title="Sign out"
-            className="text-xs px-3 py-1.5 rounded-full border border-gray-200 text-gray-500 hover:border-red-400 hover:text-red-600 transition-colors flex items-center gap-1.5">
-            Sign Out
           </button>
         </div>
       </div>
