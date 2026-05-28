@@ -1,4 +1,4 @@
-const { useState, useRef, useEffect } = React;
+const { useState, useRef, useEffect, Component } = React;
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
 const getToday    = () => new Date();
@@ -1276,12 +1276,27 @@ function App() {
     setShowFeatureModal(false);
   }
   const [discoverPct,   setDiscoverPct]   = useState(0);
+  const [apiError,      setApiError]      = useState(null);
 
   // Step 1: get project list (cache → instant, or Asana → one-time slow). Step 2: fetch tasks.
   const runRef = useRef(null);
   useEffect(() => {
     async function run(forceRefresh = false) {
       setDiscoverError(null);
+      setApiError(null);
+
+      // Quick health-check: confirm /api/ proxy is reachable before doing anything
+      try {
+        const hc = await fetch("/api/asana/users/me?opt_fields=gid", { signal: AbortSignal.timeout(8000) });
+        if (!hc.ok && hc.status !== 200) {
+          const txt = await hc.text().catch(() => "");
+          throw new Error("API proxy returned HTTP " + hc.status + (txt ? " — " + txt.slice(0, 200) : ""));
+        }
+      } catch (e) {
+        setApiError(e.message || "Could not reach the Asana API proxy (/api/asana/). Check Netlify function logs.");
+        setDiscovering(false);
+        return;
+      }
 
       let platform, business, pay;
 
@@ -1531,7 +1546,21 @@ function App() {
 
       {/* Content */}
       <div className="px-6 pb-10">
-        {discoverError ? (
+        {apiError ? (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-8 text-center mx-auto max-w-lg mt-8">
+            <p className="text-red-600 font-bold text-base mb-2">⚠ Cannot connect to Asana API</p>
+            <p className="text-red-500 text-xs mb-4">The dashboard's backend proxy is not responding. This is a deployment issue, not a code bug.</p>
+            <pre className="text-left text-xs bg-red-100 text-red-700 rounded-lg p-3 mb-4 overflow-auto whitespace-pre-wrap">{apiError}</pre>
+            <p className="text-gray-500 text-xs font-semibold mb-1">How to fix:</p>
+            <p className="text-gray-400 text-xs">1. Open Netlify dashboard → Functions tab → check <code>asana-proxy</code> is listed and deployed.</p>
+            <p className="text-gray-400 text-xs mt-1">2. Check that <code>ASANA_PAT</code> environment variable is set under Site configuration → Environment variables.</p>
+            <p className="text-gray-400 text-xs mt-1">3. Re-deploy the site after adding/fixing the function or env var.</p>
+            <button onClick={() => { setApiError(null); runRef.current && runRef.current(); }}
+              className="mt-5 px-6 py-2.5 bg-red-600 text-white text-sm font-bold rounded-xl hover:bg-red-700">
+              ↺ Retry
+            </button>
+          </div>
+        ) : discoverError ? (
           <div className="bg-red-50 border border-red-200 rounded-xl p-8 text-center">
             <p className="text-red-600 font-semibold text-sm">Failed to load projects from Asana</p>
             <p className="text-red-400 text-xs mt-1">{discoverError}</p>
@@ -1559,7 +1588,7 @@ function App() {
             : tab === "pay"
               ? <PortfolioView custs={payCusts} setCusts={setPayCusts} stages={PAY_STAGES} stageColors={PLATFORM_COLORS} stageBars={PLATFORM_BARS} notes={notes} setNotes={setNotes} loadMeta={loadMeta} setLoadMeta={setLoadMeta} statusHistory={statusHistory} />
               : <PortfolioView custs={bizCusts}  setCusts={setBizCusts}  stages={BUSINESS_STAGES} stageColors={BUSINESS_COLORS} stageBars={BUSINESS_BARS}  notes={notes} setNotes={setNotes} loadMeta={loadMeta} setLoadMeta={setLoadMeta} statusHistory={statusHistory} />
-        }
+        )}
       </div>
       {/* ── Feature announcement modal ── */}
       {showFeatureModal && (
@@ -1596,4 +1625,54 @@ function App() {
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+
+// ─── Error Boundary ───────────────────────────────────────────────────────────
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null, info: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, info) {
+    this.setState({ info });
+    console.error("Dashboard crashed:", error, info);
+  }
+  render() {
+    if (this.state.hasError) {
+      return React.createElement("div", {
+        style: {
+          minHeight: "100vh", display: "flex", flexDirection: "column",
+          alignItems: "center", justifyContent: "center",
+          background: "#f9fafb", fontFamily: "sans-serif", padding: "2rem"
+        }
+      },
+        React.createElement("div", {
+          style: { background: "#fff", border: "1px solid #fecaca", borderRadius: 16,
+                   padding: "2rem", maxWidth: 560, width: "100%", boxShadow: "0 4px 24px rgba(0,0,0,.08)" }
+        },
+          React.createElement("p", { style: { fontSize: 22, fontWeight: 800, color: "#dc2626", marginBottom: 8 } }, "⚠ Dashboard failed to load"),
+          React.createElement("p", { style: { fontSize: 13, color: "#6b7280", marginBottom: 16 } },
+            "An error occurred while rendering the dashboard. Check the browser console for details."
+          ),
+          React.createElement("pre", {
+            style: { fontSize: 11, color: "#ef4444", background: "#fef2f2", borderRadius: 8,
+                     padding: "1rem", overflowX: "auto", whiteSpace: "pre-wrap", wordBreak: "break-all" }
+          }, String(this.state.error)),
+          React.createElement("button", {
+            onClick: () => window.location.reload(),
+            style: { marginTop: 16, background: "#111827", color: "#fff", border: "none",
+                     borderRadius: 10, padding: "10px 24px", fontSize: 13, fontWeight: 700, cursor: "pointer" }
+          }, "↺ Reload Page")
+        )
+      );
+    }
+    return this.props.children;
+  }
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  React.createElement(ErrorBoundary, null, React.createElement(App))
+);
+
