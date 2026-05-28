@@ -475,8 +475,6 @@ function PortfolioView({ custs, setCusts, stages, stageColors, stageBars, notes,
   const [filterStage,  setFilterStage]  = useState(null);
   const [filterOwner,  setFilterOwner]  = useState("");
   const [filterStatus, setFilterStatus] = useState("");
-  const [searchQuery,  setSearchQuery]  = useState("");
-  const [showFeatureModal, setShowFeatureModal] = useState(false);
   const [selectedId,   setSelectedId]   = useState(null);
   const [noteForm,     setNoteForm]      = useState({ date: toISO(getToday().toISOString()), blocker: "", note: "" });
   const [saving,       setSaving]        = useState(false);
@@ -1242,6 +1240,8 @@ function App() {
   const now = useClock();
   const [tab,      setTab]      = useState("platform");
   const [notes,    setNotes]    = useState({});
+  const [searchQuery,      setSearchQuery]      = useState("");
+  const [showFeatureModal, setShowFeatureModal] = useState(false);
   const [statusHistory, setStatusHistory] = useState({}); // { [projectGid]: [{date,title,text,color}] }
   const [platCusts, setPlatCusts] = useState([]);
   const [bizCusts,  setBizCusts]  = useState([]);
