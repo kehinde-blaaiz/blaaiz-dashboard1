@@ -1,4 +1,4 @@
-const { useState, useRef, useEffect, Component } = React;
+const { useState, useRef, useEffect } = React;
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
 const getToday    = () => new Date();
@@ -1219,29 +1219,10 @@ function BlockersPanel({ platCusts, bizCusts, payCusts, notes = {} }) {
 }
 
 // ─── App root ─────────────────────────────────────────────────────────────────
-// ─── Feature announcements ────────────────────────────────────────────────────
-// To announce a new feature: update FEATURE_ID and FEATURE_CONTENT below.
-// Users who have already seen the current ID will not see the modal again.
-const FEATURE_ID = "feature-search-v1"; // bump this for every new feature
-
-const FEATURE_CONTENT = {
-  title: "🔍 New Feature — Global Search",
-  description: "You can now search for any business across all portfolios directly from the top bar.",
-  steps: [
-    "Click the search bar at the top of the dashboard",
-    "Type any business or customer name",
-    "Results appear instantly across Platform, Business and Pay",
-    "Filter results by Owner or Status",
-    "Click any result to jump directly to that portfolio",
-  ],
-};
-
 function App() {
   const now = useClock();
   const [tab,      setTab]      = useState("platform");
   const [notes,    setNotes]    = useState({});
-  const [searchQuery,      setSearchQuery]      = useState("");
-  const [showFeatureModal, setShowFeatureModal] = useState(false);
   const [statusHistory, setStatusHistory] = useState({}); // { [projectGid]: [{date,title,text,color}] }
   const [platCusts, setPlatCusts] = useState([]);
   const [bizCusts,  setBizCusts]  = useState([]);
@@ -1257,46 +1238,17 @@ function App() {
     loadStatusHistory().then(h => setStatusHistory(h)).catch(() => {});
   }, []);
 
-  // Show feature modal if user hasn't seen this feature yet
-  useEffect(() => {
-    try {
-      const seen = JSON.parse(localStorage.getItem("blaaiz-seen-features") || "[]");
-      if (!seen.includes(FEATURE_ID)) setShowFeatureModal(true);
-    } catch (_) { setShowFeatureModal(true); }
-  }, []);
 
-  function dismissFeatureModal() {
-    try {
-      const seen = JSON.parse(localStorage.getItem("blaaiz-seen-features") || "[]");
-      if (!seen.includes(FEATURE_ID)) {
-        seen.push(FEATURE_ID);
-        localStorage.setItem("blaaiz-seen-features", JSON.stringify(seen));
-      }
     } catch (_) {}
     setShowFeatureModal(false);
   }
   const [discoverPct,   setDiscoverPct]   = useState(0);
-  const [apiError,      setApiError]      = useState(null);
 
   // Step 1: get project list (cache → instant, or Asana → one-time slow). Step 2: fetch tasks.
   const runRef = useRef(null);
   useEffect(() => {
     async function run(forceRefresh = false) {
       setDiscoverError(null);
-      setApiError(null);
-
-      // Quick health-check: confirm /api/ proxy is reachable before doing anything
-      try {
-        const hc = await fetch("/api/asana/users/me?opt_fields=gid", { signal: AbortSignal.timeout(8000) });
-        if (!hc.ok && hc.status !== 200) {
-          const txt = await hc.text().catch(() => "");
-          throw new Error("API proxy returned HTTP " + hc.status + (txt ? " — " + txt.slice(0, 200) : ""));
-        }
-      } catch (e) {
-        setApiError(e.message || "Could not reach the Asana API proxy (/api/asana/). Check Netlify function logs.");
-        setDiscovering(false);
-        return;
-      }
 
       let platform, business, pay;
 
@@ -1413,22 +1365,6 @@ function App() {
           </p>
         </div>
 
-        {/* Global search bar */}
-        <div className="flex-1 max-w-md relative">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Search businesses across all portfolios…"
-            className="w-full pl-8 pr-8 py-2 text-xs border border-gray-200 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50"
-          />
-          {searchQuery && (
-            <button onClick={() => setSearchQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm leading-none">×</button>
-          )}
-        </div>
-
         <div className="flex items-center gap-3 ml-auto shrink-0">
           {avgMs != null && (
             <div className="text-xs bg-gray-50 border border-gray-200 px-3 py-1 rounded-full flex items-center gap-1.5">
@@ -1461,73 +1397,7 @@ function App() {
         </div>
       </div>
 
-      {/* Global search results — shown when search is active */}
-      {searchQuery.trim() && (() => {
-        const q = searchQuery.trim().toLowerCase();
-        const PCOL = { platform: "bg-indigo-100 text-indigo-700", business: "bg-emerald-100 text-emerald-700", pay: "bg-violet-100 text-violet-700" };
-        const PLBL = { platform: "Platform", business: "Business", pay: "Pay" };
-        const all = [
-          ...platCusts.map(c => ({ ...c, portfolioKey: "platform" })),
-          ...bizCusts.map(c  => ({ ...c, portfolioKey: "business" })),
-          ...payCusts.map(c  => ({ ...c, portfolioKey: "pay" })),
-        ];
-        const results = all.filter(c => {
-          if (!c.name.toLowerCase().includes(q)) return false;
-          if (filterOwner  && c.assignee !== filterOwner)    return false;
-          if (filterStatus && c.statusColor !== filterStatus) return false;
-          return true;
-        });
-        const ownerOptions = [...new Set(all.filter(c => c.assignee).map(c => c.assignee))].sort();
-        return (
-          <div className="mx-6 mt-4 mb-2 bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-            <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between flex-wrap gap-2">
-              <p className="text-xs font-semibold text-gray-700">
-                Results for <span className="text-blue-600">"{searchQuery}"</span>
-                <span className="ml-1 text-gray-400 font-normal">({results.length} found)</span>
-              </p>
-              <div className="flex items-center gap-2">
-                <select value={filterOwner} onChange={e => setFilterOwner(e.target.value)}
-                  className="text-xs border border-gray-200 rounded-lg px-2 py-1 text-gray-600 focus:outline-none bg-white">
-                  <option value="">All Owners</option>
-                  {ownerOptions.map(o => <option key={o} value={o}>{o}</option>)}
-                </select>
-                <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-                  className="text-xs border border-gray-200 rounded-lg px-2 py-1 text-gray-600 focus:outline-none bg-white">
-                  <option value="">All Statuses</option>
-                  <option value="green">On Track</option>
-                  <option value="yellow">At Risk</option>
-                  <option value="red">Off Track</option>
-                  <option value="blue">On Hold</option>
-                </select>
-                {(filterOwner || filterStatus) && (
-                  <button onClick={() => { setFilterOwner(""); setFilterStatus(""); }}
-                    className="text-xs px-2 py-1 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600">✕ Clear</button>
-                )}
-              </div>
-            </div>
-            {results.length === 0 ? (
-              <div className="px-5 py-6 text-center text-xs text-gray-400">No businesses found matching "{searchQuery}"</div>
-            ) : (
-              <div className="divide-y divide-gray-100">
-                {results.map(c => (
-                  <div key={c.id} className="px-5 py-3 flex items-center justify-between hover:bg-gray-50 cursor-pointer"
-                    onClick={() => { setSearchQuery(""); setTab(c.portfolioKey); }}>
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <p className="font-semibold text-gray-900 text-sm">{c.name}</p>
-                      <span className={"text-xs px-2 py-0.5 rounded-full font-medium " + (PCOL[c.portfolioKey] || "bg-gray-100 text-gray-600")}>{PLBL[c.portfolioKey]}</span>
-                      {c.currentStage && <span className="text-xs text-gray-400">{c.currentStage}</span>}
-                      {c.assignee    && <span className="text-xs text-gray-400">· {c.assignee}</span>}
-                    </div>
-                    <span className="text-xs text-blue-400 shrink-0">View →</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        );
-      })()}
-
-      {/* Tabs */}
+            {/* Tabs */}
       <div className="px-6 pt-5 flex gap-3 mb-5">
         {[
           { id: "platform", label: "Blaaiz Platform", color: "bg-indigo-600",  sub: platCusts.length + " customers · " + PLATFORM_STAGES.length + " stages" },
@@ -1546,21 +1416,7 @@ function App() {
 
       {/* Content */}
       <div className="px-6 pb-10">
-        {apiError ? (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-8 text-center mx-auto max-w-lg mt-8">
-            <p className="text-red-600 font-bold text-base mb-2">⚠ Cannot connect to Asana API</p>
-            <p className="text-red-500 text-xs mb-4">The dashboard's backend proxy is not responding. This is a deployment issue, not a code bug.</p>
-            <pre className="text-left text-xs bg-red-100 text-red-700 rounded-lg p-3 mb-4 overflow-auto whitespace-pre-wrap">{apiError}</pre>
-            <p className="text-gray-500 text-xs font-semibold mb-1">How to fix:</p>
-            <p className="text-gray-400 text-xs">1. Open Netlify dashboard → Functions tab → check <code>asana-proxy</code> is listed and deployed.</p>
-            <p className="text-gray-400 text-xs mt-1">2. Check that <code>ASANA_PAT</code> environment variable is set under Site configuration → Environment variables.</p>
-            <p className="text-gray-400 text-xs mt-1">3. Re-deploy the site after adding/fixing the function or env var.</p>
-            <button onClick={() => { setApiError(null); runRef.current && runRef.current(); }}
-              className="mt-5 px-6 py-2.5 bg-red-600 text-white text-sm font-bold rounded-xl hover:bg-red-700">
-              ↺ Retry
-            </button>
-          </div>
-        ) : discoverError ? (
+        {discoverError ? (
           <div className="bg-red-50 border border-red-200 rounded-xl p-8 text-center">
             <p className="text-red-600 font-semibold text-sm">Failed to load projects from Asana</p>
             <p className="text-red-400 text-xs mt-1">{discoverError}</p>
@@ -1588,91 +1444,10 @@ function App() {
             : tab === "pay"
               ? <PortfolioView custs={payCusts} setCusts={setPayCusts} stages={PAY_STAGES} stageColors={PLATFORM_COLORS} stageBars={PLATFORM_BARS} notes={notes} setNotes={setNotes} loadMeta={loadMeta} setLoadMeta={setLoadMeta} statusHistory={statusHistory} />
               : <PortfolioView custs={bizCusts}  setCusts={setBizCusts}  stages={BUSINESS_STAGES} stageColors={BUSINESS_COLORS} stageBars={BUSINESS_BARS}  notes={notes} setNotes={setNotes} loadMeta={loadMeta} setLoadMeta={setLoadMeta} statusHistory={statusHistory} />
-        )}
+        }
       </div>
-      {/* ── Feature announcement modal ── */}
-      {showFeatureModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
-            {/* Header */}
-            <div className="bg-gray-900 px-6 py-5">
-              <p className="text-white font-bold text-lg">{FEATURE_CONTENT.title}</p>
-              <p className="text-gray-400 text-xs mt-1">Here's what's new</p>
-            </div>
-            {/* Body */}
-            <div className="px-6 py-5">
-              <p className="text-sm text-gray-700 mb-4">{FEATURE_CONTENT.description}</p>
-              <div className="space-y-2">
-                {FEATURE_CONTENT.steps.map((step, i) => (
-                  <div key={i} className="flex items-start gap-3">
-                    <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-xs flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
-                    <p className="text-sm text-gray-600">{step}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-            {/* Footer */}
-            <div className="px-6 pb-5">
-              <button onClick={dismissFeatureModal}
-                className="w-full py-3 bg-gray-900 text-white text-sm font-bold rounded-xl hover:bg-gray-700 transition-colors">
-                Got it
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
-
-// ─── Error Boundary ───────────────────────────────────────────────────────────
-class ErrorBoundary extends Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false, error: null, info: null };
-  }
-  static getDerivedStateFromError(error) {
-    return { hasError: true, error };
-  }
-  componentDidCatch(error, info) {
-    this.setState({ info });
-    console.error("Dashboard crashed:", error, info);
-  }
-  render() {
-    if (this.state.hasError) {
-      return React.createElement("div", {
-        style: {
-          minHeight: "100vh", display: "flex", flexDirection: "column",
-          alignItems: "center", justifyContent: "center",
-          background: "#f9fafb", fontFamily: "sans-serif", padding: "2rem"
-        }
-      },
-        React.createElement("div", {
-          style: { background: "#fff", border: "1px solid #fecaca", borderRadius: 16,
-                   padding: "2rem", maxWidth: 560, width: "100%", boxShadow: "0 4px 24px rgba(0,0,0,.08)" }
-        },
-          React.createElement("p", { style: { fontSize: 22, fontWeight: 800, color: "#dc2626", marginBottom: 8 } }, "⚠ Dashboard failed to load"),
-          React.createElement("p", { style: { fontSize: 13, color: "#6b7280", marginBottom: 16 } },
-            "An error occurred while rendering the dashboard. Check the browser console for details."
-          ),
-          React.createElement("pre", {
-            style: { fontSize: 11, color: "#ef4444", background: "#fef2f2", borderRadius: 8,
-                     padding: "1rem", overflowX: "auto", whiteSpace: "pre-wrap", wordBreak: "break-all" }
-          }, String(this.state.error)),
-          React.createElement("button", {
-            onClick: () => window.location.reload(),
-            style: { marginTop: 16, background: "#111827", color: "#fff", border: "none",
-                     borderRadius: 10, padding: "10px 24px", fontSize: 13, fontWeight: 700, cursor: "pointer" }
-          }, "↺ Reload Page")
-        )
-      );
-    }
-    return this.props.children;
-  }
-}
-
-ReactDOM.createRoot(document.getElementById('root')).render(
-  React.createElement(ErrorBoundary, null, React.createElement(App))
-);
-
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
