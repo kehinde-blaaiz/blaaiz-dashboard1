@@ -471,7 +471,7 @@ function OwnersPanel({ platCusts, bizCusts, payCusts = [] }) {
 }
 
 // ─── Portfolio view ───────────────────────────────────────────────────────────
-function PortfolioView({ custs, setCusts, stages, stageColors, stageBars, notes, setNotes, loadMeta, setLoadMeta, statusHistory = {} }) {
+function PortfolioView({ custs, setCusts, stages, stageColors, stageBars, notes, setNotes, loadMeta, setLoadMeta, statusHistory = {}, jumpToId = null, setJumpToId }) {
   const [filterStage,  setFilterStage]  = useState(null);
   const [filterOwner,  setFilterOwner]  = useState("");
   const [filterStatus, setFilterStatus] = useState("");
@@ -506,6 +506,21 @@ function PortfolioView({ custs, setCusts, stages, stageColors, stageBars, notes,
 
   const loaded   = enriched.filter(c => c.isLoaded);
   const selected = selectedId ? enriched.find(c => c.id === selectedId) : null;
+
+  // Jump to a customer row when triggered from search
+  useEffect(() => {
+    if (!jumpToId) return;
+    const target = enriched.find(c => c.id === jumpToId);
+    if (target) {
+      openRow(target);
+      // Scroll the row into view after a brief paint delay
+      setTimeout(() => {
+        const el = document.getElementById("customer-row-" + jumpToId);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 80);
+    }
+    if (setJumpToId) setJumpToId(null);
+  }, [jumpToId]);
 
   // Owner and status filter options
   const ownerOptions  = [...new Set(loaded.map(c => c.assignee).filter(Boolean))].sort();
@@ -706,7 +721,7 @@ function PortfolioView({ custs, setCusts, stages, stageColors, stageBars, notes,
                 const doneT   = sumVals.reduce((a,s) => a + (s.done||0),  0);
                 const pct     = totalT ? Math.round(doneT / totalT * 100) : 0;
                 return (
-                  <tr key={c.id} onClick={() => openRow(c)}
+                  <tr id={"customer-row-" + c.id} key={c.id} onClick={() => openRow(c)}
                     className={"border-t border-gray-50 cursor-pointer hover:bg-blue-50 transition-colors " + (isSel ? "bg-blue-50" : "")}>
                     <td className="px-4 py-3 font-semibold text-gray-900">
                       <div className="flex items-center gap-1.5 flex-wrap">
@@ -1257,6 +1272,7 @@ function App() {
   const [discoverPct,   setDiscoverPct]   = useState(0);
   const [searchQuery,   setSearchQuery]   = useState("");
   const [showFeature,   setShowFeature]   = useState(false);
+  const [jumpToId,      setJumpToId]      = useState(null);
 
   // Step 1: get project list (cache → instant, or Asana → one-time slow). Step 2: fetch tasks.
   const runRef = useRef(null);
@@ -1402,6 +1418,11 @@ function App() {
             className="text-xs px-3 py-1.5 rounded-full border border-gray-200 text-gray-500 hover:border-blue-400 hover:text-blue-600 transition-colors flex items-center gap-1.5">
             🔄 Sync Projects
           </button>
+          <button
+            onClick={() => { document.cookie = "asana_token=; Path=/; Max-Age=0"; window.location.href = "/login.html"; }}
+            className="text-xs px-3 py-1.5 rounded-full border border-gray-200 text-gray-500 hover:border-red-400 hover:text-red-600 transition-colors">
+            Sign Out
+          </button>
         </div>
       </div>
 
@@ -1440,7 +1461,7 @@ function App() {
               ) : (
                 <div className="divide-y divide-gray-50 max-h-72 overflow-y-auto">
                   {results.slice(0, 12).map(c => (
-                    <div key={c.id} onClick={() => { setTab(c._pk); setSearchQuery(""); }}
+                    <div key={c.id} onClick={() => { setTab(c._pk); setSearchQuery(""); setJumpToId(c.id); }}
                       className="px-4 py-2.5 flex items-center gap-3 hover:bg-blue-50 cursor-pointer transition-colors">
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-gray-900 text-xs truncate">{c.name}</p>
@@ -1467,9 +1488,9 @@ function App() {
       {/* Tabs */}
       <div className="px-6 flex gap-3 mb-5">
         {[
-          { id: "platform", label: "Blaaiz Platform", color: "bg-indigo-600",  sub: platCusts.length + " customers · 7 stages" },
-          { id: "business", label: "Blaaiz Business",  color: "bg-emerald-600", sub: bizCusts.length  + " customers · 4 stages" },
-          { id: "pay",      label: "Blaaiz Pay",        color: "bg-violet-600",  sub: payCusts.length  + " customers · 7 stages" },
+          { id: "platform", label: "Blaaiz Platform", color: "bg-indigo-600",  sub: platCusts.length + " customers · " + PLATFORM_STAGES.length + " stages" },
+          { id: "business", label: "Blaaiz Business",  color: "bg-emerald-600", sub: bizCusts.length  + " customers · " + BUSINESS_STAGES.length + " stages" },
+          { id: "pay",      label: "Blaaiz Pay",        color: "bg-violet-600",  sub: payCusts.length  + " customers · " + PAY_STAGES.length + " stages" },
           { id: "blockers", label: "🚧 Blockers",        color: "bg-red-500",     sub: "All portfolios" },
           { id: "owners",   label: "Project Owners",   color: "bg-orange-500",  sub: "All portfolios" },
         ].map(t => (
@@ -1507,10 +1528,10 @@ function App() {
           : tab === "blockers"
           ? <BlockersPanel platCusts={platCusts} bizCusts={bizCusts} payCusts={payCusts} notes={notes} />
           : tab === "platform"
-            ? <PortfolioView custs={platCusts} setCusts={setPlatCusts} stages={PLATFORM_STAGES} stageColors={PLATFORM_COLORS} stageBars={PLATFORM_BARS} notes={notes} setNotes={setNotes} loadMeta={loadMeta} setLoadMeta={setLoadMeta} statusHistory={statusHistory} />
+            ? <PortfolioView custs={platCusts} setCusts={setPlatCusts} stages={PLATFORM_STAGES} stageColors={PLATFORM_COLORS} stageBars={PLATFORM_BARS} notes={notes} setNotes={setNotes} loadMeta={loadMeta} setLoadMeta={setLoadMeta} statusHistory={statusHistory} jumpToId={jumpToId} setJumpToId={setJumpToId} />
             : tab === "pay"
-              ? <PortfolioView custs={payCusts} setCusts={setPayCusts} stages={PAY_STAGES} stageColors={PLATFORM_COLORS} stageBars={PLATFORM_BARS} notes={notes} setNotes={setNotes} loadMeta={loadMeta} setLoadMeta={setLoadMeta} statusHistory={statusHistory} />
-              : <PortfolioView custs={bizCusts}  setCusts={setBizCusts}  stages={BUSINESS_STAGES} stageColors={BUSINESS_COLORS} stageBars={BUSINESS_BARS}  notes={notes} setNotes={setNotes} loadMeta={loadMeta} setLoadMeta={setLoadMeta} statusHistory={statusHistory} />
+              ? <PortfolioView custs={payCusts} setCusts={setPayCusts} stages={PAY_STAGES} stageColors={PLATFORM_COLORS} stageBars={PLATFORM_BARS} notes={notes} setNotes={setNotes} loadMeta={loadMeta} setLoadMeta={setLoadMeta} statusHistory={statusHistory} jumpToId={jumpToId} setJumpToId={setJumpToId} />
+              : <PortfolioView custs={bizCusts}  setCusts={setBizCusts}  stages={BUSINESS_STAGES} stageColors={BUSINESS_COLORS} stageBars={BUSINESS_BARS}  notes={notes} setNotes={setNotes} loadMeta={loadMeta} setLoadMeta={setLoadMeta} statusHistory={statusHistory} jumpToId={jumpToId} setJumpToId={setJumpToId} />
         }
       </div>
       {/* ── Feature announcement modal ── */}
