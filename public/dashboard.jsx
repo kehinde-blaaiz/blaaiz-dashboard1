@@ -1219,6 +1219,19 @@ function BlockersPanel({ platCusts, bizCusts, payCusts, notes = {} }) {
 }
 
 // ─── App root ─────────────────────────────────────────────────────────────────
+// ─── Feature announcements ───────────────────────────────────────────────────
+// To announce a new feature: bump FEATURE_ID and update FEATURE_CONTENT.
+// Users who dismissed the current ID won't see it again.
+const FEATURE_ID = "search-and-announce-v1";
+
+const FEATURE_CONTENT = {
+  title: "🔍 Two new features added",
+  bullets: [
+    "Global Search — find any customer across all portfolios instantly from the bar above the tabs",
+    "Feature Announcements — you'll see this modal once whenever something new is shipped",
+  ],
+};
+
 function App() {
   const now = useClock();
   const [tab,      setTab]      = useState("platform");
@@ -1232,12 +1245,18 @@ function App() {
   const [discovering,   setDiscovering]   = useState(true);
   const [discoverError, setDiscoverError] = useState(null);
 
-  // Load persisted notes and status history on mount
+  // Load persisted notes, status history, and feature-seen flag on mount
   useEffect(() => {
     try { const v = localStorage.getItem("blaaiz-notes"); if (v) setNotes(JSON.parse(v)); } catch (_) {}
     loadStatusHistory().then(h => setStatusHistory(h)).catch(() => {});
+    try {
+      const seen = JSON.parse(localStorage.getItem("blaaiz-seen-features") || "[]");
+      if (!seen.includes(FEATURE_ID)) setShowFeature(true);
+    } catch (_) { setShowFeature(true); }
   }, []);
   const [discoverPct,   setDiscoverPct]   = useState(0);
+  const [searchQuery,   setSearchQuery]   = useState("");
+  const [showFeature,   setShowFeature]   = useState(false);
 
   // Step 1: get project list (cache → instant, or Asana → one-time slow). Step 2: fetch tasks.
   const runRef = useRef(null);
@@ -1386,8 +1405,67 @@ function App() {
         </div>
       </div>
 
+      {/* Search bar — above tabs */}
+      <div className="px-6 pt-5 pb-3">
+        <div className="relative max-w-lg">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">🔍</span>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Search customers across all portfolios…"
+            className="w-full pl-9 pr-8 py-2.5 text-xs border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white shadow-sm"
+          />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-base leading-none">×</button>
+          )}
+        </div>
+
+        {/* Search results dropdown */}
+        {searchQuery.trim() && (() => {
+          const q = searchQuery.trim().toLowerCase();
+          const PCOL = { platform: "bg-indigo-100 text-indigo-700", business: "bg-emerald-100 text-emerald-700", pay: "bg-violet-100 text-violet-700" };
+          const PLBL = { platform: "Platform", business: "Business", pay: "Pay" };
+          const all = [
+            ...platCusts.map(c => ({ ...c, _pk: "platform" })),
+            ...bizCusts.map(c  => ({ ...c, _pk: "business" })),
+            ...payCusts.map(c  => ({ ...c, _pk: "pay" })),
+          ];
+          const results = all.filter(c => c.name.toLowerCase().includes(q));
+          return (
+            <div className="absolute z-20 mt-1 max-w-lg w-full bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden">
+              {results.length === 0 ? (
+                <div className="px-4 py-4 text-xs text-gray-400 text-center">No customers found for "{searchQuery}"</div>
+              ) : (
+                <div className="divide-y divide-gray-50 max-h-72 overflow-y-auto">
+                  {results.slice(0, 12).map(c => (
+                    <div key={c.id} onClick={() => { setTab(c._pk); setSearchQuery(""); }}
+                      className="px-4 py-2.5 flex items-center gap-3 hover:bg-blue-50 cursor-pointer transition-colors">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-900 text-xs truncate">{c.name}</p>
+                        {c.currentStage && <p className="text-xs text-gray-400 mt-0.5">{c.currentStage}{c.assignee ? " · " + c.assignee : ""}</p>}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className={"text-xs px-2 py-0.5 rounded-full font-medium " + (PCOL[c._pk] || "bg-gray-100 text-gray-600")}>{PLBL[c._pk]}</span>
+                        {c.statusColor && (
+                          <span className={"w-2 h-2 rounded-full inline-block " + (c.statusColor === "green" ? "bg-emerald-400" : c.statusColor === "red" ? "bg-red-400" : c.statusColor === "yellow" ? "bg-amber-400" : "bg-blue-400")} />
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {results.length > 12 && (
+                    <div className="px-4 py-2 text-xs text-gray-400 text-center bg-gray-50">{results.length - 12} more — type more to narrow down</div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+      </div>
+
       {/* Tabs */}
-      <div className="px-6 pt-5 flex gap-3 mb-5">
+      <div className="px-6 flex gap-3 mb-5">
         {[
           { id: "platform", label: "Blaaiz Platform", color: "bg-indigo-600",  sub: platCusts.length + " customers · 7 stages" },
           { id: "business", label: "Blaaiz Business",  color: "bg-emerald-600", sub: bizCusts.length  + " customers · 4 stages" },
@@ -1435,6 +1513,42 @@ function App() {
               : <PortfolioView custs={bizCusts}  setCusts={setBizCusts}  stages={BUSINESS_STAGES} stageColors={BUSINESS_COLORS} stageBars={BUSINESS_BARS}  notes={notes} setNotes={setNotes} loadMeta={loadMeta} setLoadMeta={setLoadMeta} statusHistory={statusHistory} />
         }
       </div>
+      {/* ── Feature announcement modal ── */}
+      {showFeature && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => {
+          try {
+            const seen = JSON.parse(localStorage.getItem("blaaiz-seen-features") || "[]");
+            if (!seen.includes(FEATURE_ID)) { seen.push(FEATURE_ID); localStorage.setItem("blaaiz-seen-features", JSON.stringify(seen)); }
+          } catch (_) {}
+          setShowFeature(false);
+        }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="bg-gray-900 px-6 py-5">
+              <p className="text-white font-bold text-base">{FEATURE_CONTENT.title}</p>
+              <p className="text-gray-400 text-xs mt-1">Here's what's new in this update</p>
+            </div>
+            <div className="px-6 py-5 space-y-3">
+              {FEATURE_CONTENT.bullets.map((b, i) => (
+                <div key={i} className="flex items-start gap-3">
+                  <span className="w-5 h-5 rounded-full bg-gray-900 text-white text-xs flex items-center justify-center shrink-0 mt-0.5 font-bold">{i + 1}</span>
+                  <p className="text-sm text-gray-600 leading-relaxed">{b}</p>
+                </div>
+              ))}
+            </div>
+            <div className="px-6 pb-5">
+              <button onClick={() => {
+                try {
+                  const seen = JSON.parse(localStorage.getItem("blaaiz-seen-features") || "[]");
+                  if (!seen.includes(FEATURE_ID)) { seen.push(FEATURE_ID); localStorage.setItem("blaaiz-seen-features", JSON.stringify(seen)); }
+                } catch (_) {}
+                setShowFeature(false);
+              }} className="w-full py-3 bg-gray-900 text-white text-sm font-bold rounded-xl hover:bg-gray-700 transition-colors">
+                Got it
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
