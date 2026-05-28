@@ -1237,11 +1237,6 @@ function App() {
     try { const v = localStorage.getItem("blaaiz-notes"); if (v) setNotes(JSON.parse(v)); } catch (_) {}
     loadStatusHistory().then(h => setStatusHistory(h)).catch(() => {});
   }, []);
-
-
-    } catch (_) {}
-    setShowFeatureModal(false);
-  }
   const [discoverPct,   setDiscoverPct]   = useState(0);
 
   // Step 1: get project list (cache → instant, or Asana → one-time slow). Step 2: fetch tasks.
@@ -1356,16 +1351,15 @@ function App() {
   return (
     <div className="min-h-screen bg-gray-50 font-sans text-sm">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center gap-4 sticky top-0 z-10">
-        <div className="shrink-0">
+      <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between sticky top-0 z-10">
+        <div>
           <h1 className="text-lg font-bold text-gray-900">Blaaiz Onboarding Dashboard</h1>
           <p className="text-xs text-gray-400 mt-0.5">
             {now.toLocaleDateString([], { weekday: "short", year: "numeric", month: "short", day: "numeric" })}
             {" · "}{now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
           </p>
         </div>
-
-        <div className="flex items-center gap-3 ml-auto shrink-0">
+        <div className="flex items-center gap-3">
           {avgMs != null && (
             <div className="text-xs bg-gray-50 border border-gray-200 px-3 py-1 rounded-full flex items-center gap-1.5">
               <span className="text-gray-400">avg</span>
@@ -1389,20 +1383,15 @@ function App() {
             className="text-xs px-3 py-1.5 rounded-full border border-gray-200 text-gray-500 hover:border-blue-400 hover:text-blue-600 transition-colors flex items-center gap-1.5">
             🔄 Sync Projects
           </button>
-          <button
-            onClick={() => { document.cookie = "asana_token=; Path=/; Max-Age=0"; window.location.href = "/login.html"; }}
-            className="text-xs px-3 py-1.5 rounded-full border border-gray-200 text-gray-500 hover:border-red-400 hover:text-red-600 transition-colors">
-            Sign Out
-          </button>
         </div>
       </div>
 
-            {/* Tabs */}
+      {/* Tabs */}
       <div className="px-6 pt-5 flex gap-3 mb-5">
         {[
-          { id: "platform", label: "Blaaiz Platform", color: "bg-indigo-600",  sub: platCusts.length + " customers · " + PLATFORM_STAGES.length + " stages" },
-          { id: "business", label: "Blaaiz Business",  color: "bg-emerald-600", sub: bizCusts.length  + " customers · " + BUSINESS_STAGES.length + " stages" },
-          { id: "pay",      label: "Blaaiz Pay",        color: "bg-violet-600",  sub: payCusts.length  + " customers · " + PAY_STAGES.length + " stages" },
+          { id: "platform", label: "Blaaiz Platform", color: "bg-indigo-600",  sub: platCusts.length + " customers · 7 stages" },
+          { id: "business", label: "Blaaiz Business",  color: "bg-emerald-600", sub: bizCusts.length  + " customers · 4 stages" },
+          { id: "pay",      label: "Blaaiz Pay",        color: "bg-violet-600",  sub: payCusts.length  + " customers · 7 stages" },
           { id: "blockers", label: "🚧 Blockers",        color: "bg-red-500",     sub: "All portfolios" },
           { id: "owners",   label: "Project Owners",   color: "bg-orange-500",  sub: "All portfolios" },
         ].map(t => (
