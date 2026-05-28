@@ -8,24 +8,9 @@
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <script>
-    // Check auth before loading dashboard
-    // The cookie is HttpOnly so JS can't read it directly
-    // We do a quick test call to /api/asana to see if we're authenticated
-    (async function() {
-      try {
-        const res = await fetch("/api/asana/users/me?opt_fields=gid");
-        if (res.status === 401) {
-          window.location.href = "/login.html";
-        }
-      } catch(e) {
-        window.location.href = "/login.html";
-      }
-    })();
-  </script>
 </head>
 <body class="bg-gray-50">
   <div id="root"></div>
-  <script type="text/babel" src="dashboard.jsx"></script>
+  <script type="text/babel" src="dashboard.jsx?v=2"></script>
 </body>
 </html>
