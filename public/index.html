@@ -4,13 +4,40 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Blaaiz Onboarding Dashboard</title>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
 <body class="bg-gray-50">
   <div id="root"></div>
-  <script type="text/babel" src="dashboard.jsx?v=2"></script>
+
+  <script>
+    async function checkAuth() {
+      try {
+        const res  = await fetch("/api/asana/users/me?opt_fields=gid", { credentials: "include" });
+        const data = await res.json();
+        if (res.status === 401 || res.status === 403 || data.error || data.errors) {
+          window.location.replace("/login.html");
+          return;
+        }
+        // Authenticated — load Babel then dashboard
+        var babel = document.createElement("script");
+        babel.src = "https://unpkg.com/@babel/standalone/babel.min.js";
+        babel.onload = function() {
+          var dash = document.createElement("script");
+          dash.type = "text/babel";
+          dash.src = "dashboard.jsx?v=" + Date.now();
+          document.body.appendChild(dash);
+        };
+        document.head.appendChild(babel);
+      } catch (e) {
+        window.location.replace("/login.html");
+      }
+    }
+    checkAuth();
+  </script>
 </body>
 </html>
