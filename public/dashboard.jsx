@@ -1425,17 +1425,17 @@ function App() {
         setPlatCusts(prev => {
           const next = (platform || []);
           if (!prev.length) return next;
-          return next.map(n => { const old = prev.find(p => p.id === n.id); return old ? { ...n, ...old, name: n.name } : n; });
+          return next.map(n => { const old = prev.find(p => p.id === n.id); return old ? { ...old, ...n } : n; });
         });
         setBizCusts(prev => {
           const next = (business || []);
           if (!prev.length) return next;
-          return next.map(n => { const old = prev.find(p => p.id === n.id); return old ? { ...n, ...old, name: n.name } : n; });
+          return next.map(n => { const old = prev.find(p => p.id === n.id); return old ? { ...old, ...n } : n; });
         });
         setPayCusts(prev => {
           const next = (pay || []);
           if (!prev.length) return next;
-          return next.map(n => { const old = prev.find(p => p.id === n.id); return old ? { ...n, ...old, name: n.name } : n; });
+          return next.map(n => { const old = prev.find(p => p.id === n.id); return old ? { ...old, ...n } : n; });
         });
       }
 
@@ -1471,16 +1471,7 @@ function App() {
                 const derived = deriveStages(data, stageOrder);
                 const patch = (prev) => prev.map(x => {
                   if (x.id !== p.id) return x;
-                  const updated = { ...x, ...derived, lastFetchDurationMs: durationMs, fetchError: null };
-                  // Silent refresh: only trigger re-render if something meaningful changed
-                  if (forceRefresh) {
-                    const changed = x.currentStage !== updated.currentStage ||
-                                    x.pctDone !== updated.pctDone ||
-                                    x.statusColor !== updated.statusColor ||
-                                    x.assignee !== updated.assignee;
-                    if (!changed) return x; // no change — return same reference, no re-render
-                  }
-                  return updated;
+                  return { ...x, ...derived, lastFetchDurationMs: durationMs, fetchError: null };
                 });
                 if (p.portfolio === "platform")      setPlatCusts(patch);
                 else if (p.portfolio === "pay")      setPayCusts(patch);
