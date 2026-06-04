@@ -1325,12 +1325,12 @@ function BlockersPanel({ platCusts, bizCusts, payCusts, notes = {} }) {
 // ─── Feature announcements ───────────────────────────────────────────────────
 // To announce a new feature: bump FEATURE_ID and update FEATURE_CONTENT.
 // Users who dismissed the current ID won't see it again.
-const FEATURE_ID = "autorefresh-scroll-v1";
+const FEATURE_ID = "silent-refresh-v1";
 
 const FEATURE_CONTENT = {
   title: "⚡ Auto-refresh + smarter list view",
   bullets: [
-    "Dashboard now syncs with Asana automatically every 60 seconds — no manual sync needed",
+    "Dashboard syncs with Asana automatically every 60 seconds — a tiny dot appears in the top-right corner while it refreshes silently in the background",
     "Customer list shows 6 rows at a time with smooth scrolling — detail panel always stays visible beside it",
     "@Mention team members in comments by typing @ — pick from your Asana workspace",
   ],
@@ -1359,6 +1359,7 @@ function App() {
     } catch (_) { setShowFeature(true); }
   }, []);
   const [discoverPct,   setDiscoverPct]   = useState(0);
+  const [silentRefreshing, setSilentRefreshing] = useState(false);
   const [searchQuery,   setSearchQuery]   = useState("");
   const [showFeature,   setShowFeature]   = useState(false);
   const [jumpToId,      setJumpToId]      = useState(null);
@@ -1381,25 +1382,37 @@ function App() {
       }
 
       if (!platform) {
-        // Cache miss or forced refresh — fetch from Asana with progress bar
-        setDiscovering(true);
-        setDiscoverPct(0);
-        let pct = 0;
-        const ticker = setInterval(() => {
-          pct = Math.min(90, pct + (pct < 40 ? 5 : pct < 70 ? 3 : 1));
-          setDiscoverPct(pct);
-        }, 600);
-        try {
-          ({ platform, business, pay } = await fetchAllProjects());
-          clearInterval(ticker);
-          setDiscoverPct(100);
-        } catch (e) {
-          clearInterval(ticker);
-          setDiscoverError(e.message);
+        if (forceRefresh) {
+          // Silent background refresh — tiny indicator only, no full loading screen
+          setSilentRefreshing(true);
+          try {
+            ({ platform, business, pay } = await fetchAllProjects());
+          } catch (e) {
+            setSilentRefreshing(false);
+            return; // fail silently — don't disrupt the user
+          }
+          setSilentRefreshing(false);
+        } else {
+          // First load / cache miss — show full progress bar
+          setDiscovering(true);
+          setDiscoverPct(0);
+          let pct = 0;
+          const ticker = setInterval(() => {
+            pct = Math.min(90, pct + (pct < 40 ? 5 : pct < 70 ? 3 : 1));
+            setDiscoverPct(pct);
+          }, 600);
+          try {
+            ({ platform, business, pay } = await fetchAllProjects());
+            clearInterval(ticker);
+            setDiscoverPct(100);
+          } catch (e) {
+            clearInterval(ticker);
+            setDiscoverError(e.message);
+            setDiscovering(false);
+            return;
+          }
           setDiscovering(false);
-          return;
         }
-        setDiscovering(false);
       }
 
       setPlatCusts(platform || []);
@@ -1515,6 +1528,13 @@ function App() {
             className="text-xs px-3 py-1.5 rounded-full border border-gray-200 text-gray-500 hover:border-blue-400 hover:text-blue-600 transition-colors flex items-center gap-1.5">
             🔄 Sync Projects
           </button>
+          {/* Silent background sync indicator */}
+          {silentRefreshing && (
+            <div className="flex items-center gap-1.5 px-2" title="Syncing with Asana…">
+              <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse inline-block" />
+              <span className="text-xs text-gray-400">Syncing…</span>
+            </div>
+          )}
           <button
             onClick={() => { document.cookie = "asana_token=; Path=/; Max-Age=0"; window.location.href = "/login.html"; }}
             className="text-xs px-3 py-1.5 rounded-full border border-gray-200 text-gray-500 hover:border-red-400 hover:text-red-600 transition-colors">
