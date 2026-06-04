@@ -27,7 +27,7 @@ const PAY_STAGES      = ["Kick Off", "Commercial", "Compliance", "Finance", "Sal
 // First load: fetches from Asana + classifies, caches result.
 // Every subsequent load: reads from cache instantly.
 // "Sync Projects" button busts the cache and re-fetches.
-const CACHE_KEY = "blaaiz-projects-v3"; // bumped — now reads from Asana portfolios directly
+const CACHE_KEY = "blaaiz-projects-v4"; // bumped — picks up Digitech / Folasade Opaleye
 
 async function loadCachedProjects() {
   try { const v = localStorage.getItem(CACHE_KEY); return v ? JSON.parse(v) : null; } catch (_) { return null; }
@@ -1325,7 +1325,7 @@ function BlockersPanel({ platCusts, bizCusts, payCusts, notes = {} }) {
 // ─── Feature announcements ───────────────────────────────────────────────────
 // To announce a new feature: bump FEATURE_ID and update FEATURE_CONTENT.
 // Users who dismissed the current ID won't see it again.
-const FEATURE_ID = "silent-refresh-v1";
+const FEATURE_ID = "silent-refresh-v1"; // no modal needed for this fix
 
 const FEATURE_CONTENT = {
   title: "⚡ Auto-refresh + smarter list view",
