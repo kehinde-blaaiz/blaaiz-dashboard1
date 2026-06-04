@@ -489,6 +489,10 @@ function PortfolioView({ custs, setCusts, stages, stageColors, stageBars, notes,
   const [commenting,   setCommenting]    = useState(false);
   const [commentSent,  setCommentSent]   = useState(false);
   const [commentError, setCommentError]  = useState(null);
+  const [members,      setMembers]        = useState([]);
+  const [mentionQuery, setMentionQuery]   = useState(null); // null = closed, string = active query
+  const [mentionPos,   setMentionPos]     = useState(0);    // caret position where @ was typed
+  const textareaRef = useRef(null);
 
   const enriched = custs.map(c => ({
     ...c,
@@ -521,6 +525,21 @@ function PortfolioView({ custs, setCusts, stages, stageColors, stageBars, notes,
     }
     if (setJumpToId) setJumpToId(null);
   }, [jumpToId]);
+
+  // Fetch workspace members once for @mention autocomplete
+  useEffect(() => {
+    (async () => {
+      try {
+        const meRes  = await fetch("/api/asana/users/me?opt_fields=workspaces");
+        const meData = await meRes.json();
+        const wsGid  = meData?.data?.workspaces?.[0]?.gid;
+        if (!wsGid) return;
+        const res  = await fetch("/api/asana/workspaces/" + wsGid + "/users?opt_fields=gid,name,photo");
+        const data = await res.json();
+        if (data?.data) setMembers(data.data);
+      } catch (_) {}
+    })();
+  }, []);
 
   // Owner and status filter options
   const ownerOptions  = [...new Set(loaded.map(c => c.assignee).filter(Boolean))].sort();
@@ -698,8 +717,9 @@ function PortfolioView({ custs, setCusts, stages, stageColors, stageBars, notes,
                 className="text-xs px-2 py-1 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 font-medium transition-colors">✕ Clear</button>
             )}
           </div>
+          <div className="overflow-x-auto">
           <table className="w-full text-xs">
-            <thead className="bg-gray-50 text-gray-400 uppercase tracking-wide text-left">
+            <thead className="bg-gray-50 text-gray-400 uppercase tracking-wide text-left sticky top-0 z-10">
               <tr>
                 <th className="px-4 py-2.5 font-semibold">Customer</th>
                 <th className="px-4 py-2.5 font-semibold">Active Stage</th>
@@ -712,6 +732,10 @@ function PortfolioView({ custs, setCusts, stages, stageColors, stageBars, notes,
                 <th className="px-4 py-2.5 font-semibold"></th>
               </tr>
             </thead>
+          </table>
+          </div>
+          <div className="overflow-y-auto" style={{ maxHeight: "336px" }}>
+          <table className="w-full text-xs">
             <tbody>
               {filtered.map(c => {
                 const meta  = loadMeta[c.id] || {};
@@ -773,6 +797,7 @@ function PortfolioView({ custs, setCusts, stages, stageColors, stageBars, notes,
               })}
             </tbody>
           </table>
+          </div>
         </div>
 
         {/* Detail panel */}
@@ -1088,9 +1113,72 @@ function PortfolioView({ custs, setCusts, stages, stageColors, stageBars, notes,
               ) : (
                 <p className="text-xs text-amber-500">Project must finish loading to select a task</p>
               )}
-              <textarea rows={3} value={commentText} onChange={e => setCommentText(e.target.value)}
-                placeholder="Type your comment…"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none" />
+              <div className="relative">
+                <textarea
+                  ref={textareaRef}
+                  rows={3}
+                  value={commentText}
+                  onChange={e => {
+                    const val = e.target.value;
+                    setCommentText(val);
+                    // Detect @ trigger
+                    const caret = e.target.selectionStart;
+                    const before = val.slice(0, caret);
+                    const atMatch = before.match(/@(\w*)$/);
+                    if (atMatch) {
+                      setMentionQuery(atMatch[1].toLowerCase());
+                      setMentionPos(caret - atMatch[0].length);
+                    } else {
+                      setMentionQuery(null);
+                    }
+                  }}
+                  onKeyDown={e => {
+                    if (mentionQuery !== null && e.key === "Escape") { setMentionQuery(null); }
+                  }}
+                  placeholder="Type your comment… use @ to mention a team member"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
+                />
+
+                {/* @mention picker */}
+                {mentionQuery !== null && (() => {
+                  const filtered = members.filter(m =>
+                    m.name.toLowerCase().includes(mentionQuery)
+                  ).slice(0, 8);
+                  if (!filtered.length) return null;
+                  return (
+                    <div className="absolute bottom-full left-0 mb-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg z-30 overflow-hidden max-h-52 overflow-y-auto">
+                      <p className="px-3 pt-2 pb-1 text-xs text-gray-400 font-semibold uppercase tracking-wide">Mention a member</p>
+                      {filtered.map(m => (
+                        <div key={m.gid}
+                          onMouseDown={e => {
+                            e.preventDefault(); // prevent textarea blur
+                            // Replace the @query with @Name in the text
+                            const before = commentText.slice(0, mentionPos);
+                            const after  = commentText.slice(mentionPos + 1 + mentionQuery.length);
+                            const inserted = before + "@" + m.name + " " + after;
+                            setCommentText(inserted);
+                            setMentionQuery(null);
+                            // Restore focus + place caret after inserted name
+                            setTimeout(() => {
+                              if (textareaRef.current) {
+                                const pos = (before + "@" + m.name + " ").length;
+                                textareaRef.current.focus();
+                                textareaRef.current.setSelectionRange(pos, pos);
+                              }
+                            }, 0);
+                          }}
+                          className="flex items-center gap-2.5 px-3 py-2 hover:bg-blue-50 cursor-pointer transition-colors">
+                          {m.photo?.image_36x36
+                            ? <img src={m.photo.image_36x36} className="w-6 h-6 rounded-full object-cover shrink-0" alt="" />
+                            : <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-500 shrink-0">{m.name[0]}</div>
+                          }
+                          <span className="text-xs text-gray-800 font-medium">{m.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
               <button onClick={sendComment} disabled={commenting || !commentText.trim() || (!selectedTaskGid && !selected.firstTaskGid)}
                 className={"w-full py-2.5 rounded-lg text-xs font-bold transition-colors " + (commentSent ? "bg-green-500 text-white" : "bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40")}>
                 {commenting ? "Posting…" : commentSent ? "✓ Posted to Asana!" : "Post Comment"}
@@ -1237,13 +1325,14 @@ function BlockersPanel({ platCusts, bizCusts, payCusts, notes = {} }) {
 // ─── Feature announcements ───────────────────────────────────────────────────
 // To announce a new feature: bump FEATURE_ID and update FEATURE_CONTENT.
 // Users who dismissed the current ID won't see it again.
-const FEATURE_ID = "search-and-announce-v1";
+const FEATURE_ID = "autorefresh-scroll-v1";
 
 const FEATURE_CONTENT = {
-  title: "🔍 Two new features added",
+  title: "⚡ Auto-refresh + smarter list view",
   bullets: [
-    "Global Search — find any customer across all portfolios instantly from the bar above the tabs",
-    "Feature Announcements — you'll see this modal once whenever something new is shipped",
+    "Dashboard now syncs with Asana automatically every 60 seconds — no manual sync needed",
+    "Customer list shows 6 rows at a time with smooth scrolling — detail panel always stays visible beside it",
+    "@Mention team members in comments by typing @ — pick from your Asana workspace",
   ],
 };
 
@@ -1374,6 +1463,14 @@ function App() {
     }
     runRef.current = run;
     run();
+  }, []);
+
+  // Auto-refresh every 60 seconds — silent background sync (no loading state)
+  useEffect(() => {
+    const iv = setInterval(() => {
+      if (runRef.current) runRef.current(true); // true = bust cache → fresh from Asana
+    }, 60000);
+    return () => clearInterval(iv);
   }, []);
 
   const allMeta    = Object.values(loadMeta);
