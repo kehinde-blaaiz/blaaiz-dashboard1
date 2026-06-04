@@ -1415,14 +1415,34 @@ function App() {
         }
       }
 
-      setPlatCusts(platform || []);
-      setBizCusts(business || []);
-      setPayCusts(pay || []);
+      // On silent refresh: don't wipe existing customer arrays — only patch changed fields
+      if (!forceRefresh) {
+        setPlatCusts(platform || []);
+        setBizCusts(business || []);
+        setPayCusts(pay || []);
+      } else {
+        // Merge new project list without removing existing loaded data
+        setPlatCusts(prev => {
+          const next = (platform || []);
+          if (!prev.length) return next;
+          return next.map(n => { const old = prev.find(p => p.id === n.id); return old ? { ...n, ...old, name: n.name } : n; });
+        });
+        setBizCusts(prev => {
+          const next = (business || []);
+          if (!prev.length) return next;
+          return next.map(n => { const old = prev.find(p => p.id === n.id); return old ? { ...n, ...old, name: n.name } : n; });
+        });
+        setPayCusts(prev => {
+          const next = (pay || []);
+          if (!prev.length) return next;
+          return next.map(n => { const old = prev.find(p => p.id === n.id); return old ? { ...n, ...old, name: n.name } : n; });
+        });
+      }
 
       const allProjects = [...(platform || []), ...(business || []), ...(pay || [])];
       const initMeta = {};
       allProjects.forEach(p => { initMeta[p.id] = { progress: 0, doneMs: null, error: null }; });
-      setLoadMeta(initMeta);
+      if (!forceRefresh) setLoadMeta(initMeta);
 
       const byGid = {};
       allProjects.forEach(p => {
@@ -1449,9 +1469,22 @@ function App() {
               const stageOrder = p.portfolio === "platform" ? PLATFORM_STAGES : p.portfolio === "pay" ? PAY_STAGES : BUSINESS_STAGES;
               try {
                 const derived = deriveStages(data, stageOrder);
-                if (p.portfolio === "platform")      setPlatCusts(prev => prev.map(x => x.id !== p.id ? x : { ...x, ...derived, lastFetchDurationMs: durationMs, fetchError: null }));
-                else if (p.portfolio === "pay")      setPayCusts (prev => prev.map(x => x.id !== p.id ? x : { ...x, ...derived, lastFetchDurationMs: durationMs, fetchError: null }));
-                else                                 setBizCusts (prev => prev.map(x => x.id !== p.id ? x : { ...x, ...derived, lastFetchDurationMs: durationMs, fetchError: null }));
+                const patch = (prev) => prev.map(x => {
+                  if (x.id !== p.id) return x;
+                  const updated = { ...x, ...derived, lastFetchDurationMs: durationMs, fetchError: null };
+                  // Silent refresh: only trigger re-render if something meaningful changed
+                  if (forceRefresh) {
+                    const changed = x.currentStage !== updated.currentStage ||
+                                    x.pctDone !== updated.pctDone ||
+                                    x.statusColor !== updated.statusColor ||
+                                    x.assignee !== updated.assignee;
+                    if (!changed) return x; // no change — return same reference, no re-render
+                  }
+                  return updated;
+                });
+                if (p.portfolio === "platform")      setPlatCusts(patch);
+                else if (p.portfolio === "pay")      setPayCusts(patch);
+                else                                 setBizCusts(patch);
                 setLoadMeta(prev => ({ ...prev, [p.id]: { progress: 100, doneMs: durationMs, error: null } }));
               } catch (e) {
                 setLoadMeta(prev => ({ ...prev, [p.id]: { progress: null, doneMs: null, error: e.message } }));
