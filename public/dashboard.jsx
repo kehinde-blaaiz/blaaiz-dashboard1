@@ -1502,11 +1502,11 @@ function App() {
     run();
   }, []);
 
-  // Auto-refresh every 60 seconds — silent background sync (no loading state)
+  // Auto-refresh every 10 seconds — silent background sync (no loading state)
   useEffect(() => {
     const iv = setInterval(() => {
       if (runRef.current) runRef.current(true); // true = bust cache → fresh from Asana
-    }, 60000);
+    }, 10000);
     return () => clearInterval(iv);
   }, []);
 
